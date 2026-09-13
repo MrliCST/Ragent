@@ -225,11 +225,11 @@ S0 前置：服务在跑 + 生成密钥对 + 导出 scope 白名单
 
 ## S9 收尾
 
-- [ ] 移除 S3 的临时日志
-- [ ] 更新 spec：本次新增两条项目约定——「代理令牌经 MCP 传输层传递，禁止走工具参数」与「谷粒侧校验必须双分支且失败不降级」，
+- [x] 移除 S3 的临时日志
+- [x] 更新 spec：本次新增两条项目约定——「代理令牌经 MCP 传输层传递，禁止走工具参数」与「谷粒侧校验必须双分支且失败不降级」，
       按 `trellis-update-spec` 落盘并挂索引
-- [ ] 把 S0 的 scope 白名单清单、S3 的并发验证结论与日志、S6 的两次对照输出存入本任务目录
-- [ ] 提交（Phase 3.4）。**跨两个仓库**：Ragent 与 guli2 各自提交。
+- [x] 把 S0 的 scope 白名单清单、S3 的并发验证结论与日志、S6 的两次对照输出存入本任务目录
+- [x] 提交（Phase 3.4）。**跨两个仓库**：Ragent 与 guli2 各自提交。
       排除用户个人笔记 `文档.md` 与 `.claude/settings.local.json`（沿用上一任务的处理）。
       **确认私钥 PEM 未被提交**（S0 已放工作目录外，提交前再核一次）
 
@@ -627,3 +627,45 @@ Dubbo 默认严格序列化检查直接拒绝：
 > 坑（本次实际踩到）：`kill $PID` 后**不能只看 `kill -0` 的循环结果就下结论**——
 > 循环跑满次数也会正常退出，打印出来的「已停」是假的。必须用 `ss -ltnp` 核对端口真的释放。
 > 同一坑还有：`cmd | tail; echo $?` 取到的是 `tail` 的退出码，构建失败会被读成成功（本次也踩了一次）。
+---
+
+### S9（2026-09-13）收尾记录
+
+**临时日志已清**：`AgentDelegation.logProbe()` 与 `McpServerConfig` 里的探针调用一并删除
+（含其 `claim()` / `pad()` 辅助与两个正则常量），mcp-server 重新打包
+（`-Dmaven.test.skip=true`，27918305 字节）并重启。清完后**重跑了全部 AC**，
+确认拿掉探针不影响链路：`verify-ac.py` 3/3、`verify-guli-boundary.py` 20/20。
+
+**AC 证据集中到一份构建上**：AC3 原先只有手敲 curl 的临时结果，S9 时补进
+`verify-guli-boundary.py`（本就同类的"直连 guli + 断言 body.code"框架），
+现在八个 AC 的证据都出自同一次运行，不再依赖"我记得当时是通的"。
+
+**spec 落盘**：新建 `.trellis/spec/backend/agent-delegation-token.md`
+（含 7 段强制结构 + 两条项目约定），挂入 `backend/index.md`；
+并在 `guides/cross-layer-thinking-guide.md` 增补一条边界契约与一段说明
+——**该指南原有的「新 context holder 必须注册 TTL」规则与 `DelegationContext`
+刻意用裸 ThreadLocal 恰好相反**，不写清楚下次会有人"按指南把它修坏"。
+
+**提交**（跨两个仓库，各自提交）：
+
+| 仓库 | 分支 | 提交 | 文件数 |
+|---|---|---|---|
+| Ragent | `feature/guli-mcp-live` | `1c68790` | 33 |
+| guli2 | `feature/agent-delegation-token`（从 `master` 新建） | `b9dd49b` | 14 |
+
+- **私钥未进仓**：提交前扫过两边的暂存内容（`grep "BEGIN.*PRIVATE KEY"`），均为 0；
+  仓库内无 `*.pem`。另在 `.gitignore` 补了 `delegation-private.pem` / `*-private.pem`
+  兜底规则（正本在 `~/.ragent-delegation/`，本就在工作目录之外），并用
+  `git check-ignore -v` 验证规则确实生效。公钥可入库——谷粒配置里内嵌的就是它。
+- **有意排除**：`文档.md`（用户个人笔记）、`.claude/settings.local.json`、
+  `09-13-agent-stream-failure-hardening/`（尚未获批的任务目录）、
+  以及上一任务遗留的 `docker-compose-infra.yml`、`gulimall_pms.sql`
+  和两处任务文档的改动（与本次交付无关，混进来只会让提交说不清）。
+- **guli2 为何开分支**：该仓库既往直接在 `master` 上提交，但按惯例改动默认分支前先开分支。
+  如欲并入：`git checkout master && git merge --ff-only feature/agent-delegation-token`。
+
+**遗留待决（不阻塞，需用户拍板）**：两处 `enabled` 的**提交默认值是 `false`**
+（`design.md` 的"分两步上线/可一键回滚"就是这么设计的），而本次 AC1–AC8 全部是在
+`--guli.agent-token.enabled=true` 的**启动参数覆盖**下验的。即"验过的状态"与
+"提交的默认状态"不同。要么保持默认关闭（安全，符合设计），要么改成默认打开
+（则需在打开态重跑一遍 AC 再提交）。**本次未擅自改动默认值。**
