@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "验收时要逐层验证边界契约而不只看最外层：MCP tools/call 返回文本 → executor 解析出的字段 → guli2 HTTP 响应 JSON → MySQL 实际行。三层都要有独立证据（tools/call 输出、curl 原始响应、SELECT 结果），否则无法区分是解析错了还是数据本来就没有。"}
+{"file": ".trellis/spec/guides/index.md", "reason": "收尾自查用：确认本次改动没有遗漏该指南提示的边界情形，特别是错误分支（HTTP 200 但业务 code=500、skuId 不存在导致 NPE）与空结果分支（rows 为空）这两类容易在验收时被漏掉的情况。"}

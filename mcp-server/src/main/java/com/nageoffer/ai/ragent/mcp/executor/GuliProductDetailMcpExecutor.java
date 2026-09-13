@@ -26,8 +26,10 @@ import io.modelcontextprotocol.spec.McpSchema.Tool;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.boot.web.client.RestTemplateBuilder;
+import org.springframework.boot.restclient.RestTemplateBuilder;
 import org.springframework.context.annotation.Bean;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
@@ -96,24 +98,33 @@ public class GuliProductDetailMcpExecutor {
             // 调用谷粒商城商品详情接口
             String url = guliMcpProperties.getProduct().getBaseUrl() + "/display/item/" + skuId;
             log.info("调用谷粒商城商品详情接口：{}", url);
-            
+
             RestTemplate restTemplate = restTemplateBuilder
-                    .setConnectTimeout(Duration.ofSeconds(5))
-                    .setReadTimeout(Duration.ofSeconds(10))
+                    .connectTimeout(Duration.ofSeconds(5))
+                    .readTimeout(Duration.ofSeconds(10))
                     .build();
-            
-            ResponseEntity<Map> response = restTemplate.getForEntity(url, Map.class);
-            
-            if (response.getStatusCodeValue() == 200 && response.getBody() != null) {
-                Map<String, Object> resultData = response.getBody();
-                String result = buildProductDetailResult(skuId, resultData);
-                
-                log.info("MCP 工具调用完成，toolId={}, skuId={}, elapsed={}ms",
-                        TOOL_ID, skuId, System.currentTimeMillis() - startMs);
-                return successResult(result);
-            } else {
-                return errorResult("商品详情查询失败，HTTP 状态码：" + response.getStatusCodeValue());
+
+            ResponseEntity<Map> response = restTemplate.exchange(
+                    url, HttpMethod.GET,
+                    new HttpEntity<>(GuliApiSupport.headers(guliMcpProperties)), Map.class);
+
+            int status = response.getStatusCode().value();
+            Map<String, Object> resultData = response.getBody();
+            if (status != 200 || resultData == null) {
+                return errorResult("商品详情查询失败，HTTP 状态码：" + status);
             }
+
+            // 谷粒商城业务失败时同样返回 HTTP 200（如 skuId 不存在 → code=10002），必须再看响应体
+            if (!GuliApiSupport.isSuccess(resultData)) {
+                return errorResult(String.format("商品详情查询失败：%s（code=%d）",
+                        GuliApiSupport.messageOf(resultData), GuliApiSupport.codeOf(resultData)));
+            }
+
+            String result = buildProductDetailResult(skuId, resultData);
+
+            log.info("MCP 工具调用完成，toolId={}, skuId={}, elapsed={}ms",
+                    TOOL_ID, skuId, System.currentTimeMillis() - startMs);
+            return successResult(result);
         } catch (Exception e) {
             log.error("MCP 工具调用失败，toolId={}, elapsed={}ms",
                     TOOL_ID, System.currentTimeMillis() - startMs, e);
@@ -121,48 +132,116 @@ public class GuliProductDetailMcpExecutor {
         }
     }
 
+    /**
+     * 按谷粒商城 {@code PmsSkuItemVo} 的真实结构组装文本。
+     * <p>
+     * 真实契约：{@code data.skuInfo.*}、{@code data.skuImages[]}、{@code data.skuItemSaleAttr[]}、
+     * {@code data.spuInfoDesc}、{@code data.spuBaseAttrGroup[]}。其中 {@code skuInfo} 没有
+     * brandName / categoryName / saleComment 字段，只有 brandId / catalogId / skuDesc。
+     */
+    @SuppressWarnings("unchecked")
     private String buildProductDetailResult(Long skuId, Map<String, Object> responseData) {
         StringBuilder sb = new StringBuilder();
         sb.append("【商品详情】\n\n");
-        
-        // 处理谷粒商城返回的数据结构
-        // 通常返回格式：{code: xxx, msg: xxx, data: {...}}
+        sb.append(String.format("SKU ID: %d\n", skuId));
+
         Object data = responseData.get("data");
-        if (data instanceof Map) {
-            Map<String, Object> productData = (Map<String, Object>) data;
-            
-            sb.append(String.format("SKU ID: %d\n", skuId));
-            sb.append(String.format("商品名称：%s\n", getField(productData, "skuName")));
-            sb.append(String.format("商品标题：%s\n", getField(productData, "spuName")));
-            sb.append(String.format("品牌：%s\n", getField(productData, "brandName")));
-            sb.append(String.format("分类：%s\n", getField(productData, "categoryName")));
-            sb.append(String.format("价格：￥%s\n", getField(productData, "price")));
-            sb.append(String.format("描述：%s\n", getField(productData, "saleComment")));
-            
-            // 处理图片列表
-            Object images = productData.get("images");
-            if (images instanceof List) {
-                sb.append(String.format("图片数量：%d 张\n", ((List<?>) images).size()));
-            }
-            
-            // 处理销售属性
-            Object attrs = productData.get("saleAttrs");
-            if (attrs instanceof List) {
-                sb.append(String.format("销售属性：%d 个\n", ((List<?>) attrs).size()));
-            }
-            
-            sb.append("\n如需查询库存详情，请使用库存查询工具。");
-        } else {
-            sb.append(String.format("SKU ID: %d\n", skuId));
-            sb.append("商品信息：").append(responseData.toString());
+        Object skuInfoRaw = data instanceof Map ? ((Map<String, Object>) data).get("skuInfo") : null;
+        if (!(skuInfoRaw instanceof Map)) {
+            sb.append("商品信息：未查询到该 SKU 的详情\n");
+            return sb.toString().trim();
         }
-        
+
+        Map<String, Object> productData = (Map<String, Object>) data;
+        Map<String, Object> skuInfo = (Map<String, Object>) skuInfoRaw;
+
+        sb.append(String.format("商品名称：%s\n", getField(skuInfo, "skuName")));
+        sb.append(String.format("商品标题：%s\n", getField(skuInfo, "skuTitle")));
+        sb.append(String.format("副标题：%s\n", getField(skuInfo, "skuSubtitle")));
+        sb.append(String.format("价格：￥%s\n", getField(skuInfo, "price")));
+        sb.append(String.format("默认图：%s\n", getField(skuInfo, "skuDefaultImg")));
+        sb.append(String.format("品牌 ID：%s\n", getField(skuInfo, "brandId")));
+        sb.append(String.format("分类 ID：%s\n", getField(skuInfo, "catalogId")));
+        sb.append(String.format("商品描述：%s\n", getField(skuInfo, "skuDesc")));
+
+        appendImages(sb, productData.get("skuImages"));
+        appendSaleAttrs(sb, productData.get("skuItemSaleAttr"));
+        appendSpuInfoDesc(sb, productData.get("spuInfoDesc"));
+        appendBaseAttrGroups(sb, productData.get("spuBaseAttrGroup"));
+
+        sb.append("\n如需查询库存详情，请使用库存查询工具。");
         return sb.toString().trim();
+    }
+
+    private void appendImages(StringBuilder sb, Object images) {
+        if (images instanceof List<?> list) {
+            sb.append(String.format("商品图片：%d 张\n", list.size()));
+        }
+    }
+
+    private void appendSaleAttrs(StringBuilder sb, Object attrs) {
+        if (!(attrs instanceof List<?> list) || list.isEmpty()) {
+            sb.append("销售属性：无\n");
+            return;
+        }
+        sb.append(String.format("销售属性：%d 项\n", list.size()));
+        for (Object item : list) {
+            if (item instanceof Map<?, ?> attr) {
+                sb.append(String.format("  - %s：%s\n",
+                        attr.get("attrName"), joinValues(attr.get("attrValues"))));
+            }
+        }
+    }
+
+    private void appendSpuInfoDesc(StringBuilder sb, Object desc) {
+        if (desc instanceof Map<?, ?> map) {
+            Object decript = map.get("decript");
+            if (decript != null && !decript.toString().isBlank()) {
+                sb.append(String.format("图文介绍：%s\n", decript));
+            }
+        }
+    }
+
+    private void appendBaseAttrGroups(StringBuilder sb, Object groups) {
+        if (!(groups instanceof List<?> list) || list.isEmpty()) {
+            return;
+        }
+        sb.append(String.format("规格参数：%d 组\n", list.size()));
+        for (Object item : list) {
+            if (!(item instanceof Map<?, ?> group)) {
+                continue;
+            }
+            sb.append(String.format("  - %s\n", group.get("groupName")));
+            if (group.get("attrs") instanceof List<?> attrList) {
+                for (Object attr : attrList) {
+                    if (attr instanceof Map<?, ?> a) {
+                        sb.append(String.format("      · %s：%s\n", a.get("attrName"), a.get("attrValue")));
+                    }
+                }
+            }
+        }
     }
 
     private String getField(Map<String, Object> data, String fieldName) {
         Object value = data.get(fieldName);
         return value != null ? value.toString() : "未知";
+    }
+
+    /**
+     * 把字符串列表拼成"、"分隔的文本；非列表直接转字符串。
+     */
+    private static String joinValues(Object values) {
+        if (values instanceof List<?> list) {
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < list.size(); i++) {
+                if (i > 0) {
+                    sb.append("、");
+                }
+                sb.append(list.get(i));
+            }
+            return sb.toString();
+        }
+        return values != null ? values.toString() : "未知";
     }
 
     private static Long longArg(Map<String, Object> args, String key) {

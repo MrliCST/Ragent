@@ -25,8 +25,10 @@ import io.modelcontextprotocol.spec.McpSchema.TextContent;
 import io.modelcontextprotocol.spec.McpSchema.Tool;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.web.client.RestTemplateBuilder;
+import org.springframework.boot.restclient.RestTemplateBuilder;
 import org.springframework.context.annotation.Bean;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
@@ -108,22 +110,31 @@ public class GuliProductStockMcpExecutor {
             log.info("调用谷粒商城库存查询接口：{}", url);
             
             RestTemplate restTemplate = restTemplateBuilder
-                    .setConnectTimeout(Duration.ofSeconds(5))
-                    .setReadTimeout(Duration.ofSeconds(10))
+                    .connectTimeout(Duration.ofSeconds(5))
+                    .readTimeout(Duration.ofSeconds(10))
                     .build();
-            
-            ResponseEntity<Map> response = restTemplate.getForEntity(url, Map.class);
-            
-            if (response.getStatusCodeValue() == 200 && response.getBody() != null) {
-                Map<String, Object> resultData = response.getBody();
-                String result = buildStockResult(skuId, wareId, resultData);
-                
-                log.info("MCP 工具调用完成，toolId={}, skuId={}, wareId={}, elapsed={}ms",
-                        TOOL_ID, skuId, wareId, System.currentTimeMillis() - startMs);
-                return successResult(result);
-            } else {
-                return errorResult("库存查询失败，HTTP 状态码：" + response.getStatusCodeValue());
+
+            ResponseEntity<Map> response = restTemplate.exchange(
+                    url, HttpMethod.GET,
+                    new HttpEntity<>(GuliApiSupport.headers(guliMcpProperties)), Map.class);
+
+            int status = response.getStatusCode().value();
+            Map<String, Object> resultData = response.getBody();
+            if (status != 200 || resultData == null) {
+                return errorResult("库存查询失败，HTTP 状态码：" + status);
             }
+
+            // 谷粒商城业务失败时同样返回 HTTP 200，必须再看响应体
+            if (!GuliApiSupport.isSuccess(resultData)) {
+                return errorResult(String.format("库存查询失败：%s（code=%d）",
+                        GuliApiSupport.messageOf(resultData), GuliApiSupport.codeOf(resultData)));
+            }
+
+            String result = buildStockResult(skuId, wareId, resultData);
+
+            log.info("MCP 工具调用完成，toolId={}, skuId={}, wareId={}, elapsed={}ms",
+                    TOOL_ID, skuId, wareId, System.currentTimeMillis() - startMs);
+            return successResult(result);
         } catch (Exception e) {
             log.error("MCP 工具调用失败，toolId={}, elapsed={}ms",
                     TOOL_ID, System.currentTimeMillis() - startMs, e);
@@ -131,104 +142,70 @@ public class GuliProductStockMcpExecutor {
         }
     }
 
+    /**
+     * 按谷粒商城的真实结构组装文本。
+     * <p>
+     * 真实契约：{@code GET /ware/wareSku/list} 返回 {@code TableDataInfo<WmsWareSkuVo>}，
+     * {@code total} / {@code rows} / {@code code} / {@code msg} 全部平铺在**顶层**，没有
+     * {@code data} 包装。行内字段为 {@code wareId} / {@code stock} / {@code stockLocked}，
+     * 没有 {@code wareName}（仓库名要用 wareId 另查 {@code wms_ware_info}）。
+     */
+    @SuppressWarnings("unchecked")
     private String buildStockResult(Long skuId, Long wareId, Map<String, Object> responseData) {
         StringBuilder sb = new StringBuilder();
         sb.append("【商品库存详情】\n\n");
-        
-        // 处理谷粒商城返回的数据结构
-        // 通常返回格式：{code: xxx, msg: xxx, data: {...}}
-        // data 可能包含 rows 列表或单个对象
-        Object data = responseData.get("data");
-        if (data instanceof Map) {
-            Map<String, Object> stockData = (Map<String, Object>) data;
-            
-            // 尝试获取库存列表（TableDataInfo 格式）
-            Object rows = stockData.get("rows");
-            if (rows instanceof List && !((List<?>) rows).isEmpty()) {
-                List<Map<String, Object>> stockList = (List<Map<String, Object>>) rows;
-                sb.append(String.format("SKU ID: %d\n", skuId));
-                if (wareId != null) {
-                    sb.append(String.format("仓库 ID: %d\n", wareId));
-                }
-                sb.append(String.format("查询结果：%d 条记录\n\n", stockList.size()));
-                
-                int totalStock = 0;
-                int totalLocked = 0;
-                
-                for (Map<String, Object> stockItem : stockList) {
-                    sb.append("---\n");
-                    sb.append(String.format("仓库 ID: %s\n", getField(stockItem, "wareId")));
-                    sb.append(String.format("仓库名称：%s\n", getField(stockItem, "wareName")));
-                    
-                    Integer stock = getIntField(stockItem, "stock");
-                    Integer locked = getIntField(stockItem, "stockLocked");
-                    Integer available = stock != null && locked != null ? stock - locked : stock;
-                    
-                    sb.append(String.format("总库存：%d 件\n", stock != null ? stock : 0));
-                    sb.append(String.format("锁定库存：%d 件\n", locked != null ? locked : 0));
-                    sb.append(String.format("可用库存：%d 件\n", available != null ? available : 0));
-                    
-                    if (stock != null) totalStock += stock;
-                    if (locked != null) totalLocked += locked;
-                }
-                
-                sb.append("\n---\n");
-                sb.append(String.format("汇总：总库存 %d 件，锁定 %d 件，可用 %d 件\n", 
-                        totalStock, totalLocked, totalStock - totalLocked));
-                
-                // 库存状态提示
-                int availableTotal = totalStock - totalLocked;
-                if (availableTotal <= 0) {
-                    sb.append("\n⚠️ 提示：该商品已缺货！");
-                } else if (availableTotal <= 10) {
-                    sb.append("\n🔴 提示：库存紧张，请尽快下单！");
-                } else if (availableTotal <= 30) {
-                    sb.append("\n🟡 提示：库存较少，建议尽早购买。");
-                } else {
-                    sb.append("\n🟢 库存充足，可放心购买。");
-                }
-                
-            } else {
-                // 单个库存对象或空数据
-                sb.append(String.format("SKU ID: %d\n", skuId));
-                if (wareId != null) {
-                    sb.append(String.format("仓库 ID: %d\n", wareId));
-                }
-                
-                Integer stock = getIntField(stockData, "stock");
-                Integer locked = getIntField(stockData, "stockLocked");
-                
-                if (stock != null) {
-                    sb.append(String.format("总库存：%d 件\n", stock));
-                    sb.append(String.format("锁定库存：%d 件\n", locked != null ? locked : 0));
-                    sb.append(String.format("可用库存：%d 件\n", stock - (locked != null ? locked : 0)));
-                    
-                    int available = stock - (locked != null ? locked : 0);
-                    if (available <= 0) {
-                        sb.append("\n⚠️ 提示：该商品已缺货！");
-                    } else if (available <= 10) {
-                        sb.append("\n🔴 提示：库存紧张，请尽快下单！");
-                    } else if (available <= 30) {
-                        sb.append("\n🟡 提示：库存较少，建议尽早购买。");
-                    } else {
-                        sb.append("\n🟢 库存充足，可放心购买。");
-                    }
-                } else {
-                    sb.append("库存信息：暂无数据\n");
-                    sb.append("原始数据：").append(stockData.toString());
-                }
-            }
-        } else {
-            sb.append(String.format("SKU ID: %d\n", skuId));
-            sb.append("库存信息：").append(responseData.toString());
+        sb.append(String.format("SKU ID: %d\n", skuId));
+        if (wareId != null && wareId > 0) {
+            sb.append(String.format("仓库 ID: %d\n", wareId));
         }
-        
-        return sb.toString().trim();
-    }
 
-    private String getField(Map<String, Object> data, String fieldName) {
-        Object value = data.get(fieldName);
-        return value != null ? value.toString() : "未知";
+        Object rows = responseData.get("rows");
+        if (!(rows instanceof List<?> list) || list.isEmpty()) {
+            sb.append("\n库存信息：该 SKU 没有库存记录\n");
+            return sb.toString().trim();
+        }
+
+        sb.append(String.format("查询结果：%d 条记录\n\n", list.size()));
+
+        int totalStock = 0;
+        int totalLocked = 0;
+
+        for (Object item : list) {
+            if (!(item instanceof Map<?, ?> raw)) {
+                continue;
+            }
+            Map<String, Object> stockItem = (Map<String, Object>) raw;
+            Integer stock = getIntField(stockItem, "stock");
+            Integer locked = getIntField(stockItem, "stockLocked");
+            int stockVal = stock != null ? stock : 0;
+            int lockedVal = locked != null ? locked : 0;
+
+            sb.append("---\n");
+            sb.append(String.format("仓库 ID：%s\n", stockItem.get("wareId")));
+            sb.append(String.format("总库存：%d 件\n", stockVal));
+            sb.append(String.format("锁定库存：%d 件\n", lockedVal));
+            sb.append(String.format("可用库存：%d 件\n", stockVal - lockedVal));
+
+            totalStock += stockVal;
+            totalLocked += lockedVal;
+        }
+
+        int availableTotal = totalStock - totalLocked;
+        sb.append("\n---\n");
+        sb.append(String.format("汇总：总库存 %d 件，锁定 %d 件，可用 %d 件\n",
+                totalStock, totalLocked, availableTotal));
+
+        if (availableTotal <= 0) {
+            sb.append("\n⚠️ 提示：该商品已缺货！");
+        } else if (availableTotal <= 10) {
+            sb.append("\n🔴 提示：库存紧张，请尽快下单！");
+        } else if (availableTotal <= 30) {
+            sb.append("\n🟡 提示：库存较少，建议尽早购买。");
+        } else {
+            sb.append("\n🟢 库存充足，可放心购买。");
+        }
+
+        return sb.toString().trim();
     }
 
     private Integer getIntField(Map<String, Object> data, String fieldName) {

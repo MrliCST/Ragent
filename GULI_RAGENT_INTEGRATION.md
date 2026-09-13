@@ -30,12 +30,29 @@ package com.nageoffer.ai.ragent.mcp.executor;
 public class GuliMcpProperties {
     private ProductServiceConfig product;  // 商品服务配置
     private WareServiceConfig ware;        // 仓储服务配置
+    private AuthConfig auth;               // 鉴权配置
 }
 ```
 
 **配置项：**
 - `guli.product.base-url`: 商品服务基础 URL（默认：http://localhost:8080/product）
 - `guli.ware.base-url`: 仓储服务基础 URL（默认：http://localhost:8080/ware）
+- `guli.auth.token`: 登录态 token（可选）。**谷粒商城强制要求鉴权**，见下节
+
+> **⚠️ 鉴权是必须的，且不由网关负责**
+>
+> 谷粒商城的 `guli-common/.../interceptor/UserInfoInterceptor.java` 会校验请求头
+> `Authorization: Bearer <token>`，并要求 Redis 中存在 `guli:auth:<token>` 并反序列化出
+> `UserInfo`；任一不满足即返回 `code=10011`（未登录）。**这个拦截器在业务服务里，直连微服务端口同样被拦，绕过网关不能绕过鉴权。**
+>
+> 因此 `guli.auth.token` 留空时两个工具一律拿不到数据。token 的取得方式：
+> 正常情况走 `guli-auth` 登录换取；若 `guli-auth` 不可用（例如缺少 `@DubboReference` 导致无法启动），
+> 可手工向 Redis 种入等价的值：
+> ```
+> SET guli:auth:<token> '["com.atlearn.guli.core.UserInfo",{"userId":1,"userKey":"<token>","isTempUser":false}]' EX 2592000
+> ```
+> 注意值是 Redisson `TypedJsonJacksonCodec` + `activateDefaultTyping(NON_FINAL)` 的 Wrapper-Array 形式
+> （`["全限定类名",{...}]`），直接写普通 JSON 对象会在反序列化时失败。
 
 ### 2. 商品详情查询工具 (GuliProductDetailMcpExecutor.java)
 
@@ -53,9 +70,23 @@ public class GuliMcpProperties {
 **调用接口：** `GET {guli.product.base-url}/display/item/{skuId}`
 
 **返回数据：** 格式化后的商品详情信息，包括：
-- SKU ID、商品名称、商品标题
-- 品牌、分类、价格、描述
-- 图片数量、销售属性数量
+- SKU ID、商品名称、商品标题、副标题
+- 价格、默认图、商品描述
+- 品牌 ID、分类 ID（**注意：接口只返回 ID，不返回品牌名/分类名**——`PmsSkuItemVo` 没有 `brandName` / `categoryName` 字段）
+- 图片张数、销售属性（属性名 + 可选值列表）
+- 图文介绍、规格参数（分组名 + 属性名值对）
+
+**真实响应契约**（`R<PmsSkuItemVo>`，数据在 `data` 下）：
+```
+data.skuInfo.{skuId,spuId,skuName,skuTitle,skuSubtitle,price,skuDefaultImg,brandId,catalogId,skuDesc}
+data.skuImages[]          图片列表
+data.skuItemSaleAttr[].{attrName,attrValues[]}
+data.spuInfoDesc.decript  图文介绍（注意拼写就是 decript）
+data.spuBaseAttrGroup[].{groupName,attrs[].{attrName,attrValue}}
+```
+> ⚠️ 业务失败时该接口**同样返回 HTTP 200**，错误在响应体的 `code`/`msg` 里
+> （如 skuId 不存在 → `{"code":10002,"msg":"异步读取sku信息失败"}`）。
+> 判成功必须看 `code`，不能只看 HTTP 状态码。
 
 ### 3. 商品库存查询工具 (GuliProductStockMcpExecutor.java)
 
@@ -77,6 +108,15 @@ public class GuliMcpProperties {
 - 各仓库的总库存、锁定库存、可用库存
 - 库存汇总
 - 库存状态提示（缺货/紧张/较少/充足）
+
+**真实响应契约**（`TableDataInfo<WmsWareSkuVo>`，**字段平铺在顶层，没有 `data` 包裹**）：
+```
+{"total":2,"rows":[{"id":1,"skuId":1,"wareId":1,"stock":120,"skuName":"...","stockLocked":5},...],
+ "code":200,"msg":"查询成功"}
+```
+> - `rows` 在**顶层**，不是 `data.rows`。
+> - 行内**没有 `wareName`**，只有 `wareId`；要显示仓库名需另查 `wms_ware_info`。
+> - skuId 不存在时返回 `rows:[]` + `code:200`——这是**正常的空结果**，不是错误，工具应返回空提示而非 `isError`。
 
 ### 4. MCP Server 配置 (McpServerConfig.java)
 
@@ -100,7 +140,13 @@ guli:
     base-url: http://localhost:8080/product
   ware:
     base-url: http://localhost:8080/ware
+  auth:
+    token: <登录态 token>
 ```
+
+> 若不经网关直连微服务端口（`guli-product` :9214、`guli-ware` :9215），base-url 写
+> `http://localhost:9214` / `http://localhost:9215` 即可——注意**不要**再带 `/product`、`/ware`
+> 前缀，那是网关 `StripPrefix=1` 剥掉的部分。
 
 ## 部署步骤
 
@@ -110,14 +156,15 @@ guli:
    - `guli-product` 服务运行在 `http://localhost:8080/product`
    - `guli-ware` 服务运行在 `http://localhost:8080/ware`
 
-2. **验证接口可访问**
+2. **验证接口可访问**（必须带 `Authorization` 头，否则返回 `code=10011`）
    ```bash
    # 测试商品详情接口
-   curl http://localhost:8080/product/display/item/1
-   
+   curl -H "Authorization: Bearer <token>" http://localhost:8080/product/display/item/1
+
    # 测试库存查询接口
-   curl http://localhost:8080/ware/wareSku/list?skuId=1
+   curl -H "Authorization: Bearer <token>" http://localhost:8080/ware/wareSku/list?skuId=1
    ```
+   > 返回 HTTP 200 不等于成功，还要看响应体里的 `code` 是否为 200。
 
 ### 启动 MCP Server
 

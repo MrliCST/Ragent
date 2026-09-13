@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "本任务的根因就是跨层边界契约不匹配：MCP 工具层假设的响应结构（data.skuName / data.rows）与 guli2 HTTP 层的真实契约（data.skuInfo.* / 顶层 rows）不一致。改 executor 解析前必须先按此指南逐层核对边界契约，避免又按猜想的形状写解析。"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "两个 executor 的 handleCall / successResult / errorResult / longArg 以及本次要加的 code!=200 判定高度重复。此指南用于判断哪些该抽公共、哪些属于两个工具各自的知识（各自的响应结构），避免为了消除重复而把两份不同的解析逻辑硬合并。"}

@@ -28,6 +28,7 @@ import org.springframework.stereotype.Component;
  * 支持配置项：
  *   - guli.product.base-url: 商品服务基础 URL（默认：http://localhost:8080/product）
  *   - guli.ware.base-url: 仓储服务基础 URL（默认：http://localhost:8080/ware）
+ *   - guli.auth.token: 调用谷粒商城接口所需的登录态 token（可选）
  */
 @Data
 @Component
@@ -44,6 +45,11 @@ public class GuliMcpProperties {
      */
     private WareServiceConfig ware = new WareServiceConfig();
 
+    /**
+     * 鉴权配置
+     */
+    private AuthConfig auth = new AuthConfig();
+
     @Data
     public static class ProductServiceConfig {
         /**
@@ -58,5 +64,20 @@ public class GuliMcpProperties {
          * 仓储服务基础 URL
          */
         private String baseUrl = "http://localhost:8080/ware";
+    }
+
+    /**
+     * 鉴权配置
+     * <p>
+     * 谷粒商城的 UserInfoInterceptor 强制要求 {@code Authorization: Bearer <token>}，
+     * 且 Redis 中需存在 {@code guli:auth:<token>}。未配置 token 时不带该请求头
+     * （保持与改造前一致的行为）。
+     */
+    @Data
+    public static class AuthConfig {
+        /**
+         * 登录态 token；为空则不带 Authorization 头
+         */
+        private String token;
     }
 }
