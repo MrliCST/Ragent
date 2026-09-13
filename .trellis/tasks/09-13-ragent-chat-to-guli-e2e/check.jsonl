@@ -1,0 +1,2 @@
+{"file": ".trellis/tasks/09-13-ragent-chat-to-guli-e2e/prd.md", "reason": "验收时逐条核对 AC1-AC8，特别注意 AC3 要求的是 mcpConfigured 由基线 1 变为 3 这个定量对照，而不是\"日志里没报错\"这类弱证据。"}
+{"file": ".trellis/spec/guides/index.md", "reason": "收尾自查：本任务的核心风险是\"看起来通了其实没通\"——ReAct Agent 可能不调工具而直接凭常识作答，答案恰好通顺。必须用 SSE tool 事件 + 答复中的真实商品名/库存数（MySQL 里的值）双重确认数据来源。"}

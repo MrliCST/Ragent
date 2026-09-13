@@ -1,0 +1,3 @@
+{"file": ".trellis/tasks/09-13-ragent-chat-to-guli-e2e/design.md", "reason": "本任务的机制细节（t_intent_node ∩ tools/list、toBinding 决定 name/description 才是生效字段、缓存必须在建节点后失效）都已源码确认但分散在多处。动手前必须按此文件执行，尤其不要误填 param_prompt_template —— 它在 agent 档下是死配置。"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "本任务横跨四层：ReAct Agent → MCP 客户端 → mcp-server 工具 → guli2 HTTP → MySQL。诊断时必须在正确的层取证（例如 mcpConfigured 变化证明装配层、SSE tool 事件证明调用层），否则会把\"工具没被挂载\"误判成\"工具调用失败\"。"}
+{"file": ".trellis/tasks/09-13-guli-mcp-live/evidence-mcp-e2e.txt", "reason": "父任务已证实 MCP 协议层（tools/call）返回真实数据。本任务若失败，可据此判定故障在下游装配层而非工具实现层，避免重复排查已证明可用的部分。"}

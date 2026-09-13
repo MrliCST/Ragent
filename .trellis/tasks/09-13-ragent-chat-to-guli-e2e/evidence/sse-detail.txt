@@ -1,0 +1,336 @@
+event:meta
+data:{"conversationId":"2099052418808512512","taskId":"2099052418808512513"}
+
+event:tool
+data:{"name":"product_detail_query","displayName":"商品详情查询","status":"start"}
+
+event:tool
+data:{"name":"product_detail_query","displayName":"商品详情查询","status":"end","result":"【商品详情】\n\nSKU ID: 1\n商品名称：华为 HUAWEI Mate 30 Pro 星河银 8GB+256GB\n商品标题：华为 HUAWEI Mate 30 Pro 星河银 8GB+256GB麒麟990旗舰芯片OLED环幕屏双4000万徕卡电影四摄4G全网通手机\n副标题：【现货抢购！享白条12期免息！】麒麟990，OLED环幕屏双4000万徕卡电影四摄；Mate30系列享12期免息》\n价格：￥6299.0000\n默认图：https://gulimall-hello.oss-cn-beijing.aliyuncs.com/2019-11-26/60e65a44-f943-4ed5-87c8-8cf90f403018_d511faab82abb34b.jpg\n品牌 ID：9\n分类 ID：225\n商品描述：未知\n商品图片：10 张\n销售属性：2 项\n  - 颜色：星河银、亮黑色、翡冷翠、罗兰紫\n  - 版本：8GB+256GB、8GB+128GB\n图文介绍：https://gulimall-hello.oss-cn-beijing.aliyuncs.com/2019-11-26/702b76e6-ce3e-4268-8216-a12db5607347_73366cc235d68202.jpg,https://gulimall-hello.oss-cn-beijing.aliyuncs.com/2019-11-26/38956d81-5dff-4abd-8ce8-144908e869d8_528211b97272d88a.jpg\n规格参数：3 组\n  - 主体\n      · 入网型号：LIO-AL00\n      · 上市年份：2019\n  - 主芯片\n      · CPU品牌：海思（Hisilicon）\n      · CPU型号：HUAWEI Kirin 970\n  - 基本信息\n      · 机身颜色：黑色\n      · 机身长度（mm）：158.3\n      · 机身材质工艺：玻璃;陶瓷\n\n如需查询库存详情，请使用库存查询工具。","ok":true}
+
+event:message
+data:{"type":"response","delta":"【"}
+
+event:message
+data:{"type":"response","delta":"商品详情】"}
+
+event:message
+data:{"type":"response","delta":"\n\n-"}
+
+event:message
+data:{"type":"response","delta":" SKU ID: 1"}
+
+event:message
+data:{"type":"response","delta":"\n- 商品名称：华为 H"}
+
+event:message
+data:{"type":"response","delta":"UAWEI Mate 3"}
+
+event:message
+data:{"type":"response","delta":"0 Pro 星河银"}
+
+event:message
+data:{"type":"response","delta":" 8GB+25"}
+
+event:message
+data:{"type":"response","delta":"6GB\n- 商品标题"}
+
+event:message
+data:{"type":"response","delta":"：华为 HUAWEI"}
+
+event:message
+data:{"type":"response","delta":" Mate 30 Pro"}
+
+event:message
+data:{"type":"response","delta":" 星河银 8GB"}
+
+event:message
+data:{"type":"response","delta":"+256GB麒麟"}
+
+event:message
+data:{"type":"response","delta":"990旗舰芯片O"}
+
+event:message
+data:{"type":"response","delta":"LED环幕屏双4"}
+
+event:message
+data:{"type":"response","delta":"000万徕卡"}
+
+event:message
+data:{"type":"response","delta":"电影四摄4G全"}
+
+event:message
+data:{"type":"response","delta":"网通手机\n-"}
+
+event:message
+data:{"type":"response","delta":" 副标题：【现货抢"}
+
+event:message
+data:{"type":"response","delta":"购！享白条1"}
+
+event:message
+data:{"type":"response","delta":"2期免息！】"}
+
+event:message
+data:{"type":"response","delta":"麒麟990，O"}
+
+event:message
+data:{"type":"response","delta":"LED环幕屏双4"}
+
+event:message
+data:{"type":"response","delta":"000万徕卡"}
+
+event:message
+data:{"type":"response","delta":"电影四摄；Mate3"}
+
+event:message
+data:{"type":"response","delta":"0系列享12期"}
+
+event:message
+data:{"type":"response","delta":"免息》\n-"}
+
+event:message
+data:{"type":"response","delta":" 价格：￥629"}
+
+event:message
+data:{"type":"response","delta":"9.0000"}
+
+event:message
+data:{"type":"response","delta":"\n- 默认图：!"}
+
+event:message
+data:{"type":"response","delta":"[](https://gulim"}
+
+event:message
+data:{"type":"response","delta":"all-hello.oss-cn"}
+
+event:message
+data:{"type":"response","delta":"-beijing.aliyuncs"}
+
+event:message
+data:{"type":"response","delta":".com/2019"}
+
+event:message
+data:{"type":"response","delta":"-11-26"}
+
+event:message
+data:{"type":"response","delta":"/60e65"}
+
+event:message
+data:{"type":"response","delta":"a44-f94"}
+
+event:message
+data:{"type":"response","delta":"3-4ed5-"}
+
+event:message
+data:{"type":"response","delta":"87c8-8"}
+
+event:message
+data:{"type":"response","delta":"cf90f40"}
+
+event:message
+data:{"type":"response","delta":"3018_d5"}
+
+event:message
+data:{"type":"response","delta":"11faab82"}
+
+event:message
+data:{"type":"response","delta":"abb34b.jpg)"}
+
+event:message
+data:{"type":"response","delta":"\n- 品牌 ID"}
+
+event:message
+data:{"type":"response","delta":"：9\n- 分类"}
+
+event:message
+data:{"type":"response","delta":" ID：225"}
+
+event:message
+data:{"type":"response","delta":"\n- 商品描述：未知"}
+
+event:message
+data:{"type":"response","delta":"\n- 商品图片：10"}
+
+event:message
+data:{"type":"response","delta":" 张\n- 销"}
+
+event:message
+data:{"type":"response","delta":"售属性：\n  -"}
+
+event:message
+data:{"type":"response","delta":" 颜色：星"}
+
+event:message
+data:{"type":"response","delta":"河银、亮黑色、"}
+
+event:message
+data:{"type":"response","delta":"翡冷翠、罗兰"}
+
+event:message
+data:{"type":"response","delta":"紫\n  - 版"}
+
+event:message
+data:{"type":"response","delta":"本：8GB+2"}
+
+event:message
+data:{"type":"response","delta":"56GB、8GB"}
+
+event:message
+data:{"type":"response","delta":"+128GB"}
+
+event:message
+data:{"type":"response","delta":"\n- 图文介绍：!"}
+
+event:message
+data:{"type":"response","delta":"[](https://gulim"}
+
+event:message
+data:{"type":"response","delta":"all-hello.oss-cn"}
+
+event:message
+data:{"type":"response","delta":"-beijing.aliyuncs"}
+
+event:message
+data:{"type":"response","delta":".com/2019"}
+
+event:message
+data:{"type":"response","delta":"-11-26"}
+
+event:message
+data:{"type":"response","delta":"/702b7"}
+
+event:message
+data:{"type":"response","delta":"6e6-ce3e"}
+
+event:message
+data:{"type":"response","delta":"-4268-"}
+
+event:message
+data:{"type":"response","delta":"8216-a1"}
+
+event:message
+data:{"type":"response","delta":"2db5607"}
+
+event:message
+data:{"type":"response","delta":"347_73"}
+
+event:message
+data:{"type":"response","delta":"366cc23"}
+
+event:message
+data:{"type":"response","delta":"5d6820"}
+
+event:message
+data:{"type":"response","delta":"2.jpg), !"}
+
+event:message
+data:{"type":"response","delta":"[](https://gulim"}
+
+event:message
+data:{"type":"response","delta":"all-hello.oss-cn"}
+
+event:message
+data:{"type":"response","delta":"-beijing.aliyuncs"}
+
+event:message
+data:{"type":"response","delta":".com/2019"}
+
+event:message
+data:{"type":"response","delta":"-11-26"}
+
+event:message
+data:{"type":"response","delta":"/38956"}
+
+event:message
+data:{"type":"response","delta":"d81-5dff"}
+
+event:message
+data:{"type":"response","delta":"-4abd-8ce"}
+
+event:message
+data:{"type":"response","delta":"8-1449"}
+
+event:message
+data:{"type":"response","delta":"08e869"}
+
+event:message
+data:{"type":"response","delta":"d8_528"}
+
+event:message
+data:{"type":"response","delta":"211b97"}
+
+event:message
+data:{"type":"response","delta":"272d88"}
+
+event:message
+data:{"type":"response","delta":"a.jpg)\n- 规"}
+
+event:message
+data:{"type":"response","delta":"格参数："}
+
+event:message
+data:{"type":"response","delta":"\n  - 主体\n      ·"}
+
+event:message
+data:{"type":"response","delta":" 入网型号：L"}
+
+event:message
+data:{"type":"response","delta":"IO-AL00"}
+
+event:message
+data:{"type":"response","delta":"\n      · 上市年份"}
+
+event:message
+data:{"type":"response","delta":"：2019"}
+
+event:message
+data:{"type":"response","delta":"\n  - 主芯片"}
+
+event:message
+data:{"type":"response","delta":"\n      · CPU品牌："}
+
+event:message
+data:{"type":"response","delta":"海思（Hisilicon"}
+
+event:message
+data:{"type":"response","delta":"）\n      · CPU型号："}
+
+event:message
+data:{"type":"response","delta":"HUAWEI Kirin"}
+
+event:message
+data:{"type":"response","delta":" 970"}
+
+event:message
+data:{"type":"response","delta":"\n  - 基本信息"}
+
+event:message
+data:{"type":"response","delta":"\n      · 机身颜色"}
+
+event:message
+data:{"type":"response","delta":"：黑色\n      ·"}
+
+event:message
+data:{"type":"response","delta":" 机身长度（mm）："}
+
+event:message
+data:{"type":"response","delta":"158.3"}
+
+event:message
+data:{"type":"response","delta":"\n      · 机身材质"}
+
+event:message
+data:{"type":"response","delta":"工艺：玻璃;陶瓷"}
+
+event:message
+data:{"type":"response","delta":"\n\n如需查询库存详情，请"}
+
+event:message
+data:{"type":"response","delta":"使用库存查询工具。"}
+
+event:finish
+data:{"messageId":"2099052481634992128","title":"请查一下 SKU 1 的商品详情","messageStatus":"NORMAL"}
+
+event:done
+data:[DONE]
+

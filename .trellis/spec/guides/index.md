@@ -35,6 +35,7 @@ These guides help you **ask the right questions before coding**.
 - [ ] **You are adding or renaming an SSE event type** → the frontend consumer is part of the contract
 - [ ] Multiple consumers need the same data (`framework/convention` may already own the shape)
 - [ ] **Work crosses a thread pool** → `TransmittableThreadLocal` registration, not a plain `ThreadLocal`
+- [ ] **You are adding or renaming an MCP tool** → registering it in the MCP server is only half the chain; it also needs an intent-tree node, or chat can never reach it → [MCP Tool Routing](../backend/mcp-tool-routing.md)
 - [ ] You are adding an event kind, MQ payload, JSONL record, or config field
 - [ ] You are not sure where some logic belongs
 

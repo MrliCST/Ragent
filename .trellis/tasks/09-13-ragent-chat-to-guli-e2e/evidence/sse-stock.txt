@@ -1,0 +1,54 @@
+event:meta
+data:{"conversationId":"2099052497216831488","taskId":"2099052497216831489"}
+
+event:tool
+data:{"name":"product_stock_query","displayName":"商品库存查询","status":"start"}
+
+event:tool
+data:{"name":"product_stock_query","displayName":"商品库存查询","status":"end","result":"【商品库存详情】\n\nSKU ID: 1\n查询结果：2 条记录\n\n---\n仓库 ID：1\n总库存：120 件\n锁定库存：5 件\n可用库存：115 件\n---\n仓库 ID：2\n总库存：40 件\n锁定库存：10 件\n可用库存：30 件\n\n---\n汇总：总库存 160 件，锁定 15 件，可用 145 件\n\n🟢 库存充足，可放心购买。","ok":true}
+
+event:message
+data:{"type":"response","delta":"SKU 1"}
+
+event:message
+data:{"type":"response","delta":" 的"}
+
+event:message
+data:{"type":"response","delta":"商品"}
+
+event:message
+data:{"type":"response","delta":"现在还有货，"}
+
+event:message
+data:{"type":"response","delta":"汇总信息如下："}
+
+event:message
+data:{"type":"response","delta":"\n\n- 总库存："}
+
+event:message
+data:{"type":"response","delta":"160 件"}
+
+event:message
+data:{"type":"response","delta":"\n- 锁定库存："}
+
+event:message
+data:{"type":"response","delta":"15 件\n-"}
+
+event:message
+data:{"type":"response","delta":" 可用库存：1"}
+
+event:message
+data:{"type":"response","delta":"45 件\n\n目前"}
+
+event:message
+data:{"type":"response","delta":"库存充足，您可以放心"}
+
+event:message
+data:{"type":"response","delta":"购买。"}
+
+event:finish
+data:{"messageId":"2099052512190496768","title":"SKU 1 现在还有货吗","messageStatus":"NORMAL"}
+
+event:done
+data:[DONE]
+

@@ -1,0 +1,18 @@
+### 交集左侧：GET /intent-tree/trees（节选）
+intentCode=guli-product-detail name=商品详情查询 kind=2 mcpToolId=product_detail_query enabled=1 children=0
+intentCode=guli-product-stock name=商品库存查询 kind=2 mcpToolId=product_stock_query enabled=1 children=0
+
+### 交集右侧：bootstrap 启动日志
+2026-09-13T16:26:26.307+08:00  INFO 87855 --- [ragent-service] [           main] c.n.a.r.r.c.m.McpClientAutoConfiguration : MCP Server [default] 返回 7 个工具
+2026-09-13T16:26:26.311+08:00  INFO 87855 --- [ragent-service] [           main] c.n.a.r.r.c.mcp.DefaultMcpToolRegistry   : MCP 工具注册成功, toolId: product_detail_query
+2026-09-13T16:26:26.312+08:00  INFO 87855 --- [ragent-service] [           main] c.n.a.r.r.c.mcp.DefaultMcpToolRegistry   : MCP 工具注册成功, toolId: product_stock_query
+
+### 缓存失效证据
+建节点后 EXISTS ragent:intent:tree = 0（API 主动清）
+两次对话后 EXISTS ragent:intent:tree = 1（识别器从 DB 重建，含新节点）
+
+### 第三次证据：mcp-server 侧真实收到调用
+2026-09-13T16:27:51.775+08:00  INFO 68002 --- [ragent-mcp-server] [oundedElastic-2] c.n.a.r.m.e.GuliProductDetailMcpExecutor : MCP 工具调用完成，toolId=product_detail_query, skuId=1, elapsed=18ms
+2026-09-13T16:28:09.737+08:00  INFO 68002 --- [ragent-mcp-server] [oundedElastic-2] c.n.a.r.m.e.GuliProductStockMcpExecutor  : MCP 工具调用完成，toolId=product_stock_query, skuId=1, wareId=null, elapsed=18ms
+
+### bootstrap 侧无「意图树配置的 MCP 工具当前不可用」告警：0 条

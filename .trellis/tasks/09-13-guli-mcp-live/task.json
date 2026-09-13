@@ -18,7 +18,9 @@
   "commit": null,
   "pr_url": null,
   "subtasks": [],
-  "children": [],
+  "children": [
+    "09-13-ragent-chat-to-guli-e2e"
+  ],
   "parent": null,
   "relatedFiles": [],
   "notes": "",
