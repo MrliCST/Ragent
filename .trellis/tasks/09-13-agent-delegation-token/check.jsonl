@@ -1,0 +1,4 @@
+{"file": ".trellis/tasks/09-13-agent-delegation-token/prd.md", "reason": "验收逐条核对 AC1-AC8。三个最容易把未修复误判为已修复的点必须盯死：AC2 是唯一能区分「身份真的生效」与「回落到了服务 token」的判据——只验 AC1 时，串号与正常在单会员场景下结果完全相同，必须换会员看数据是否随之变化；AC4-d 的判据是逐条核对改造后代码路径，不是看几个用例通过；AC6 要确认绑定解析里真的 join 了 status=1，而不是只在种数据时避开。"}
+{"file": ".trellis/tasks/09-13-agent-delegation-token/design.md", "reason": "「取舍」与「风险与回滚」两节列了必须显式确认的点：ThreadLocal 桥接依赖 SDK 内部线程模型（S3 是否真的做了并发串号验证，还是被跳过）、scope 白名单是否真的「默认拒绝」而非写成黑名单、两侧开关是否按序上线（先 guli 关闭态）。收尾时逐条确认，不要默认成立。"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "验收时必须逐层取证，而不是只看最终结果对不对。同一条「购物车查不到」可能来自四个不同层：令牌没签发、令牌没传到 mcp-server、谷粒验签失败、绑定没解析出 memberId。每层都要有独立证据（mcp-server 收到的 header 日志、谷粒验签结果、绑定键的实际值），否则无法定位。"}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "收尾自查失败语义是否与既有约定一致：本次新增了 401（未绑定 / 会员停用 / 令牌无效）与 403（越权路径）两类分支，需确认它们与谷粒既有的 ErrorCodeEnum 用法、BusinessException 抛出方式一致，没有为了本任务新造一套错误表达。"}

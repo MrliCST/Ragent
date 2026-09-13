@@ -19,6 +19,7 @@ package com.nageoffer.ai.ragent.agent.tool;
 
 import cn.hutool.core.util.StrUtil;
 import com.nageoffer.ai.ragent.agent.config.ConditionalOnAgentEngine;
+import com.nageoffer.ai.ragent.agent.delegation.DelegationTokenIssuer;
 import com.nageoffer.ai.ragent.agent.memory.AgentMemoryPipeline;
 import com.nageoffer.ai.ragent.agent.memory.AgentMemoryProperties;
 import com.nageoffer.ai.ragent.agent.service.AgentConversationService;
@@ -58,6 +59,7 @@ public class AgentToolCatalog {
     private final AgentPromptResolver agentPromptResolver;
     private final AgentMemoryProperties memoryProperties;
     private final AgentMemoryPipeline memoryPipeline;
+    private final DelegationTokenIssuer delegationTokenIssuer;
 
     /**
      * 把注册表与提示词解析一次并定格：同一次请求的指纹与 Toolkit 都从这份快照派生
@@ -84,7 +86,7 @@ public class AgentToolCatalog {
             log.warn("AGENT_MEMORY_TOOL_DESCRIPTION 提示词为空, 本次不挂载 {}", MemoryFlushTool.TOOL_NAME);
         }
         catalog.bindings.forEach(binding -> toolkit.registerAgentTool(
-                new McpToolBridge(binding.executor(), binding.description())));
+                new McpToolBridge(binding.executor(), binding.description(), delegationTokenIssuer)));
         // 不可用只在重建这一刻报：解析每请求都走，放解析里会刷屏
         catalog.unavailableToolIds.forEach(toolId ->
                 log.warn("意图树配置的 MCP 工具当前不可用, toolId: {}", toolId));

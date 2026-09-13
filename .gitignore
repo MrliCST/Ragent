@@ -64,3 +64,7 @@ Thumbs.db
 *.lz
 *.lzo
 ```
+# 代理令牌的签名私钥：绝不允许进仓（正本在 ~/.ragent-delegation/，工作目录之外）
+# 公钥可以入库（谷粒侧配置里内嵌的就是它），故不整体忽略 *.pem，只挡私钥。
+delegation-private.pem
+*-private.pem

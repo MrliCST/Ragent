@@ -1,0 +1,85 @@
+# S6/S7 证据：AC1 / AC2 身份对照 + AC6 停用会员 + AC7 审计
+
+环境（本次运行的进程）：
+ragent bootstrap :9090（`AGENT_DELEGATION_ENABLED=true`）、mcp-server :9099（S9 清理后的新 jar）、
+guli-product :9214 与 guli-shopcart :9216（`--guli.agent-token.enabled=true`）
+
+脚本：`verify-ac.py`（本目录；跑法 `python3 -u verify-ac.py ac1 ac2 ac6`）
+
+---
+
+## 1. AC1 / AC2：换会员，数据随之变化
+
+这是本任务的核心交付，也是区分「链路通了」与「串号了」的**唯一有效判据**
+（`prd.md` 原文）。两个会员的购物车内容互不包含，因此出现对方标记即为串号：
+
+| 会员 | 购物车 |
+|---|---|
+| memberId=1 | SKU 1 · 华为 HUAWEI Mate 30 Pro 星河银 8GB+256GB · ¥6299 |
+| memberId=2 | SKU 9 · Apple iPhone 11 (A2223) 黑色 128GB · ¥5999 |
+
+```
+[OK  ] AC1 admin→member1: 答案含「Mate 30 Pro」=True, 不含「iPhone 11」=True, 谷粒解析=2001523723396308993→member1 (期望 2001523723396308993→member1)
+[OK  ] AC2 probe→member2: 答案含「iPhone 11」=True, 不含「Mate 30 Pro」=True, 谷粒解析=2001523723396308994→member2 (期望 2001523723396308994→member2)
+
+通过 2/2
+```
+
+**为什么每条用例要两处证据，缺一不可**：
+
+- **答案**（含自己的商品、不含别人的）——用户看到的结果对不对；
+- **谷粒侧解析记录**——**为什么**对。单看答案无法区分「验签后按绑定解析出了预期会员」
+  与「模型碰巧编对了 / 回落到了服务账号」。后者在单会员场景下答案完全相同。
+
+第二处证据取自**谷粒侧**（下节 AC7 的那行日志），不是 mcp-server 的：mcp-server 只是
+透传方，它能打印的 `sub` 是**未经校验**的令牌内容；谷粒那行是验签通过并查完绑定之后的
+结果，且附带解析出的 `memberId`，证据强一个量级。
+（S9 已按计划移除 mcp-server 的临时探针日志，见 `AgentDelegation.java`。）
+
+---
+
+## 2. AC7：谷粒侧日志可查到 ragent 用户标识与会话标识
+
+同一次运行在 `/tmp/guli-shopcart.log` 留下的审计行：
+
+```
+代理调用通过, ragentUserId: 2001523723396308993, session: 2099110287356575744, memberId: 1, uri: /cart
+代理调用通过, ragentUserId: 2001523723396308994, session: 2099110315135451136, memberId: 2, uri: /cart
+```
+
+四要素齐全：**ragent 用户标识**（`ragentUserId`，来自令牌 `sub`）、
+**会话标识**（`session`，来自 `RuntimeContext.getSessionId()` = conversationId）、
+解析出的会员、被访问的路径。两个不同的 session 值证明这确实是两次独立对话，不是同一条重放。
+
+---
+
+## 3. AC6：`UmsMember.status != 1` 的会员拿不到访问权
+
+把 probe_user 改绑到停用会员（memberId=3, `mcp_disabled`, `status=0`）后：
+
+```
+[OK  ] AC6 probe→停用会员 3: 谷粒专属拒绝日志=True, 未解析出会员=True, 未泄露任何会员购物车=True
+```
+
+对应的谷粒侧日志（**专属**拒绝行，与"验签失败"可区分）：
+
+```
+代理令牌未绑定可用会员, ragentUserId: 2001523723396308994, session: 2099110381271236608
+```
+
+**判据的要点**：断言的是这条专属日志，不是答案里的"登录"字样——后者模型自己也可能说，
+那样的"通过"是假通过。同时断言「该用户本次**没有**任何 `代理调用通过` 行」，
+即拒绝确实发生在**绑定解析**这一步，而不是签名或 scope 把它挡在了更前面
+（否则这条用例证明不了"停用被拦住了"，只证明了"令牌无效"）。
+
+---
+
+## 4. 本轮验收总账
+
+| 脚本 | 覆盖 | 结果 |
+|---|---|---|
+| `verify-ac.py` | AC1 / AC2 / AC6 | **3/3** |
+| `verify-guli-boundary.py` | AC3 / AC4 / AC5 / AC8 | **20/20** |
+| `verify-s3-concurrency.py` | S3 并发串号 | 6 轮 12 条令牌全部对应 |
+
+AC7 为日志证据，见上第 2 节。八个 AC 全部有落盘证据。

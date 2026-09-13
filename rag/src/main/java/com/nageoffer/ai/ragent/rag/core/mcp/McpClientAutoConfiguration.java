@@ -69,11 +69,21 @@ public class McpClientAutoConfiguration {
 
         try {
             String mcpUrl = serverUrl.endsWith("/mcp") ? serverUrl : serverUrl + "/mcp";
+            // 每次调用把该次传输上下文中的代理令牌写进请求头（有令牌才写，无令牌保持原请求）
             HttpClientStreamableHttpTransport transport =
-                    HttpClientStreamableHttpTransport.builder(mcpUrl).build();
+                    HttpClientStreamableHttpTransport.builder(mcpUrl)
+                            .httpRequestCustomizer((builder, method, uri, body, context) -> {
+                                Object token = context.get(DelegationContext.KEY);
+                                if (token != null) {
+                                    builder.header(DelegationContext.HEADER, token.toString());
+                                }
+                            })
+                            .build();
 
             McpSyncClient client = McpClient.sync(transport)
                     .clientInfo(new Implementation("ragent-bootstrap", "1.0.0"))
+                    // 每次调用求值一次，从当前线程的 ThreadLocal 取令牌（见 DelegationContext）
+                    .transportContextProvider(DelegationContext::snapshot)
                     .build();
             client.initialize();
             clients.add(client);

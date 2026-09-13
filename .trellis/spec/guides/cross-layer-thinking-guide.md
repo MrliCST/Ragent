@@ -44,6 +44,7 @@ The recurring failures are:
 | Answer evidence | `framework/convention/GroundingChunk`, `SourceRef` | This is what gets persisted on the message, rendered as citations, and shown in the source viewer |
 | Ingestion pipeline | `ingestion/domain/*`, `IngestionSpecCodec` | Node output JSON is a contract between nodes; decode through the codec, not ad-hoc maps |
 | Module boundary | Maven dependency chain | `framework` → (`infra-ai`, `system`) → `rag` → `agent` → `bootstrap`; `mcp-server` standalone |
+| End-user identity to a downstream system | `X-Agent-Delegation` header → `Authorization: Bearer` | The delegation token travels in the **transport layer only**, never in tool parameters; the mapping authority is the downstream side. See `backend/agent-delegation-token.md` |
 
 `framework/convention` exists specifically so the retrieval layer, the prompt layer, the persistence
 layer and the frontend-facing VOs can agree on the same shapes. Adding a field there is a
@@ -87,6 +88,17 @@ Thread crossing deserves special attention: a large part of this codebase runs o
 pools (`ThreadPoolExecutorConfig`, `StreamAsyncExecutor`, `CollectionParallelRetriever`). Context that
 lives in a plain `ThreadLocal` disappears at that boundary. `UserContext` and `RagTraceContext` are
 registered with TTL so they survive; a new context holder must be registered the same way.
+
+**First ask whether the context crosses a pool at all.** Registering a holder with TTL is the fix for
+a boundary you actually cross — applied to one you do not cross, it is cargo cult that hides the real
+invariant. `DelegationContext` is a deliberate counter-example: it is a plain `ThreadLocal` because
+`McpSyncClient.callTool` **blocks on the calling thread**, so `set` and the SDK's
+`transportContextProvider` evaluation run on the same thread by construction. Wrapping it in TTL
+would not break it, but it would erase the reason it is correct — and that reason is what tells you
+when it stops being correct (an SDK upgrade that subscribes on another scheduler).
+So: the deciding question is not "does this codebase use pools?" but **"does *this* value's producer
+and consumer ever run on different threads?"** — and for anything resting on a library's *internal*
+threading, verify it empirically rather than by reading its docs.
 
 ### Step 3: Define Contracts
 

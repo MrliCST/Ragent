@@ -17,6 +17,7 @@
 
 package com.nageoffer.ai.ragent.mcp.config;
 
+import io.modelcontextprotocol.common.McpTransportContext;
 import io.modelcontextprotocol.server.McpServer;
 import io.modelcontextprotocol.server.McpServerFeatures;
 import io.modelcontextprotocol.server.McpSyncServer;
@@ -26,6 +27,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * MCP Server 配置类
@@ -48,6 +50,14 @@ public class McpServerConfig {//使用HTTP Streamable网络 HTTP 接口，远程
     //MCP 的 HTTP 传输层，处理 HTTP、SSE、JSON‑RPC 编解码；
     public HttpServletStreamableServerTransportProvider transportProvider() {
         return HttpServletStreamableServerTransportProvider.builder()
+                // 从请求头反解代理令牌填进传输上下文，工具 handler 经 exchange.transportContext() 取用
+                .contextExtractor(request -> {
+                    String token = request.getHeader(AgentDelegation.HEADER);
+                    if (token == null || token.isBlank()) {
+                        return McpTransportContext.EMPTY;
+                    }
+                    return McpTransportContext.create(Map.of(AgentDelegation.CONTEXT_KEY, token));
+                })
                 .build();
     }
 

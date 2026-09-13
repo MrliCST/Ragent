@@ -15,6 +15,7 @@ This directory contains guidelines for backend development. Fill in each file wi
 | Guide | Description | Status |
 |-------|-------------|--------|
 | [MCP Tool Routing](./mcp-tool-routing.md) | Making an MCP tool reachable from chat: the intent-tree ∩ tools/list intersection, cache traps, and how to verify | Filled |
+| [Agent Delegation Token](./agent-delegation-token.md) | Calling guli as the end user: the transport-layer-only rule, the dual-branch no-degrade rule, claims/binding contracts, and why two members are required to verify it | Filled |
 | [Directory Structure](./directory-structure.md) | Module organization and file layout | To fill |
 | [Database Guidelines](./database-guidelines.md) | ORM patterns, queries, migrations | To fill |
 | [Error Handling](./error-handling.md) | Error types, handling strategies | To fill |

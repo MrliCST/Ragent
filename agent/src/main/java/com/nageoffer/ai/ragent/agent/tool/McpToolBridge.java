@@ -19,7 +19,10 @@ package com.nageoffer.ai.ragent.agent.tool;
 
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
+import com.nageoffer.ai.ragent.agent.delegation.DelegationTokenIssuer;
+import com.nageoffer.ai.ragent.rag.core.mcp.DelegationContext;
 import com.nageoffer.ai.ragent.rag.core.mcp.McpToolExecutor;
+import io.agentscope.core.agent.RuntimeContext;
 import io.agentscope.core.message.TextBlock;
 import io.agentscope.core.message.ToolResultBlock;
 import io.agentscope.core.message.ToolResultState;
@@ -54,6 +57,11 @@ public class McpToolBridge implements AgentTool {
      * 意图树中面向主 Agent 路由的描述，空则回落 MCP 服务端原始描述
      */
     private final String descriptionOverride;
+
+    /**
+     * 谷粒代理令牌签发器；未启用时签出 null，调用回落服务 token
+     */
+    private final DelegationTokenIssuer delegationTokenIssuer;
 
     @Override
     public String getName() {
@@ -99,6 +107,8 @@ public class McpToolBridge implements AgentTool {
 
     private ToolResultBlock execute(ToolCallParam param) {
         String toolCallId = param.getToolUseBlock() == null ? null : param.getToolUseBlock().getId();
+        // 每次工具调用签一次短效代理令牌，绑到当前线程；SDK 的 transportContextProvider 会在此线程求值
+        DelegationContext.set(issueDelegationToken(param));
         try {
             CallToolResult result = executor.execute(new HashMap<>(param.getInput()));//调用桥接：AgentScope 工具调用 → 转发给 McpToolExecutor 执行
             boolean isError = result != null && Boolean.TRUE.equals(result.isError());
@@ -106,7 +116,24 @@ public class McpToolBridge implements AgentTool {
         } catch (Exception e) {
             log.error("MCP 工具调用异常, toolId: {}", getName(), e);
             return buildResult(toolCallId, "工具调用异常: " + e.getMessage(), true);
+        } finally {
+            // 必须清除：工具调用跑在线程池上，残留令牌会串到下一个任务（最严重的串号）
+            DelegationContext.clear();
         }
+    }
+
+    /**
+     * 从 RuntimeContext 读 ragent 用户与会话，签发代理令牌。
+     * <p>
+     * RuntimeContext 已由框架带上 userId / sessionId，无需另建注入路径。
+     * 签发器未启用或异常时返回 null，MCP 调用回落服务 token。
+     */
+    private String issueDelegationToken(ToolCallParam param) {
+        RuntimeContext runtimeContext = param.getRuntimeContext();
+        if (runtimeContext == null || delegationTokenIssuer == null) {
+            return null;
+        }
+        return delegationTokenIssuer.issue(runtimeContext.getUserId(), runtimeContext.getSessionId());
     }
 
     private ToolResultBlock buildResult(String toolCallId, String text, boolean isError) {

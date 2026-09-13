@@ -1,0 +1,62 @@
+# S0 证据：scope 路径白名单（AC5 的判据来源）
+
+实现：`guli2/.../guli-common/src/main/java/com/atlearn/guli/agent/AgentScopePolicy.java`
+导出时间：2026-09-13（S0）
+
+## 为什么必须从实际 Controller 导出，不能凭印象写
+
+`design.md` 的红线是「**默认拒绝**」：不在白名单内的一律拒。这条红线的安全性完全
+取决于白名单里**没有**多写。凭印象写会犯两类错，两类都是漏洞：
+
+- 把后台路径误加进去 → 代理令牌可触达管理接口（AC5 直接失败）；
+- 把 C 端路径写成过宽的前缀（如用 `/display` 而不是 `/display/item/`）→ 本不该
+  允许的兄弟接口被连带放行。
+
+因此下表每一条都用 `grep -rn --include=*.java "Mapping(\"<路径>\")"` 回查过实际映射，
+逐条列出出处。
+
+## 精确匹配（`EXACT_PATHS`，`Set.of(...)`）
+
+| 白名单条目 | 实际映射 | 出处 |
+|---|---|---|
+| `/cart` | `@GetMapping("/cart")` | `guli-shopcart/.../controller/CartController.java:67` |
+| `/updateForCart` | `@PostMapping("/updateForCart")` | `guli-shopcart/.../controller/CartController.java:43` |
+| `/order/confirm` | `@PostMapping("/order/confirm")` | `guli-order/.../controller/OrderController.java:32` |
+| `/order/cancel` | `@PostMapping("/order/cancel")` | `guli-order/.../controller/OrderController.java:43` |
+| `/order/submit` | `@PostMapping("/order/submit")` | `guli-order/.../controller/OrderController.java:55` |
+| `/display/esearch` | 类级 `@RequestMapping("/display")` + `@PostMapping("/esearch")` | `guli-product/.../controller/PmsDisplayController.java:24,32` |
+
+## 目录式前缀（`PREFIX_PATHS`，要求前缀后仍有内容）
+
+| 白名单条目 | 实际映射 | 出处 |
+|---|---|---|
+| `/addCart/` | `@PostMapping("/addCart/{skuId}")` | `guli-shopcart/.../controller/CartController.java:30` |
+| `/deleteCart/` | `@PostMapping("/deleteCart/{skuId}")` | `guli-shopcart/.../controller/CartController.java:56` |
+| `/display/item/` | 类级 `@RequestMapping("/display")` + `@GetMapping("/item/{spuId}")` | `guli-product/.../controller/PmsDisplayController.java:24,40` |
+
+**9 条全部对应真实映射，无死条目。**
+
+> 命名注记：`/display/item/{spuId}` 的路径变量叫 **`spuId`** 不是 `skuId`
+> （响应体里带 `data.skuInfo.skuName`）。前缀白名单写 `/display/item/` 与变量名无关，
+> 不受影响；但 AC3 的脚本若按 `skuId` 去描述这个接口，说法是不准的。
+
+## 「目录式前缀」为什么要额外要求 `length() > prefix.length()`
+
+`startsWith` 单独用会漏掉一条：`/display/item/` 自己（前缀恰好等于全路径）也会匹配。
+那样的请求没有路径变量、必然 404，放行它等于让一个无意义请求穿过拦截器。
+`AgentScopePolicy.allows()` 因此同时判 `startsWith(prefix) && length() > prefix.length()`。
+
+**这条规则 HTTP 层测不到**（无对应映射的路径在 DispatcherServlet 就 404 了，
+`preHandle` 根本不会跑），所以它由 `AgentScopePolicy` 的单元级断言覆盖，
+不要用 HTTP 结果冒充——见 `verify-guli-boundary.py` AC5 段落里的 `[注]`。
+
+## 后台路径为什么能作为 AC5 的反例
+
+`/category/listTree`、`/brand/list`、`/attribute/attrGroup/list` 都是 `PmsSpuController` 等
+后台 Controller 的真实映射，且**不在**上表内 → 持代理令牌访问必然 `code=10026`。
+实测三条全部 `10026`（`verify-guli-boundary.py` 的 AC5 段）。
+
+同段落原文记录的坑：`/maintain/brands` 在本环境返回 **500** 而非 10026 —— 因为
+`PmsSpuController` 依赖的 `BaseEsMapper<SkuEsModel>` 缺失、handler bean 建不起来，
+拦截器**根本没运行**。那种 500 不是"被策略拒绝"，不能计入 AC5 通过（既有 ES 环境问题，
+与本改造无关）。AC5 因此改用上面三个能真实到达 handler 的路径。

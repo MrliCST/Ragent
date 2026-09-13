@@ -37,16 +37,30 @@ final class GuliApiSupport {
     }
 
     /**
-     * 构造请求头。
+     * 构造请求头（服务身份）。
      * <p>
      * 谷粒商城的 UserInfoInterceptor 会校验 {@code Authorization: Bearer <token>} 且要求
      * Redis 中存在 {@code guli:auth:<token>}，未携带时接口一律返回 {@code code=10011}。
      * 未配置 token 时不加该头，保持与改造前一致的行为。
      */
     static HttpHeaders headers(GuliMcpProperties properties) {
+        return headers(properties, null);
+    }
+
+    /**
+     * 构造请求头，带代理令牌时以代理身份（终端用户）调用。
+     * <p>
+     * 代理令牌与自身服务 token <b>二者不混用</b>：代理令牌存在时优先于服务 token。
+     * 令牌由 ragent 经 MCP 传输层 header 传来，绝不进工具参数。
+     *
+     * @param delegationToken 代理令牌（JWT）；为空则回落服务 token
+     */
+    static HttpHeaders headers(GuliMcpProperties properties, String delegationToken) {
         HttpHeaders headers = new HttpHeaders();
         headers.setAccept(List.of(MediaType.APPLICATION_JSON));
-        String token = properties.getAuth().getToken();
+        String token = (delegationToken != null && !delegationToken.isBlank())
+                ? delegationToken.trim()
+                : properties.getAuth().getToken();
         if (token != null && !token.isBlank()) {
             headers.setBearerAuth(token.trim());
         }

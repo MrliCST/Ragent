@@ -52,6 +52,15 @@ agent:
     summary-enabled: true
     long-term-enabled: true
     evictable-tools: [ search_knowledge ]
+  # 谷粒代理令牌签发（RS256，每次工具调用签一次）；默认关闭，关闭时不加 X-Agent-Delegation 头，MCP 调用回落服务 token
+  delegation:
+    enabled: ${AGENT_DELEGATION_ENABLED:false}
+    private-key-path: ${AGENT_DELEGATION_PRIVATE_KEY_PATH:}   # 私钥 PEM 文件路径，放工作目录外，不入仓
+    key-id: ragent-2026-09                                    # JWT header kid，轮换时换新值（谷粒侧按 kid 选公钥）
+    issuer: ragent                                            # iss，验签方必须校验
+    audience: guli-mall                                       # aud，验签方必须校验，防止跨系统复用
+    ttl-seconds: 60                                           # 令牌有效期，贴近单次 MCP 往返预算
+    scope: "cart:read"                                        # 代理令牌的路径白名单依据，逗号分隔
 
 rag:
   storage:

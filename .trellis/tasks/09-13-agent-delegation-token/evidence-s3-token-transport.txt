@@ -1,0 +1,69 @@
+# S3 证据：令牌经 MCP 传输层到达 + 并发不串号
+
+环境：ragent bootstrap :9090（`AGENT_DELEGATION_ENABLED=true`）、mcp-server :9099、guli-product :9214（**本次一行未改**）
+
+## 1. 单条验证：令牌到达 mcp-server，sub 等于发起用户
+
+发起：admin（userId `2001523723396308993`）提问「请查一下 SKU 1 的商品详情」
+
+```
+2026-09-13T19:29:53.530+08:00  INFO 328079 --- [ragent-mcp-server] [nio-9099-exec-6] c.n.a.ragent.mcp.config.AgentDelegation  : [delegation-probe] 收到代理令牌, sub=ragent:2001523723396308993, jti=7881e81f-914a-4191-89a3-8ea1be87b768
+2026-09-13T19:29:53.544+08:00  INFO 328079 --- [ragent-mcp-server] [oundedElastic-1] c.n.a.r.m.e.GuliProductDetailMcpExecutor : 调用谷粒商城商品详情接口：http://localhost:9214/display/item/1
+```
+
+两个断言都成立：
+
+1. **令牌经传输层到达**：`[delegation-probe]` 由 `McpServerConfig` 的 `contextExtractor` 打印，
+   只有 `X-Agent-Delegation` 头真的到了才会出现。
+2. **身份正确**：`sub=ragent:2001523723396308993` 正是 admin 的 userId。
+
+## 2. 谷粒侧反应：401 是预期且正确的
+
+```
+159:[0;39m - 业务异常: code=10011, msg=未登录，请先登录
+```
+
+谷粒侧本次一行未改，Redis 里不存在 `guli:auth:<jwt>`，所以必然 401。
+**若此时反而成功，说明令牌被静默丢弃、回落到了服务账号——那才是本任务要消灭的串号行为。**
+
+> `implement.md` S3 原先写的「谷粒调用仍成功（走服务 token）」与 design.md 的
+> 「代理令牌优先且**不与服务 token 混用**」自相矛盾，已修正该行。
+
+## 3. 并发串号验证【本任务最高风险项】
+
+风险：`McpToolBridge` 用 ThreadLocal 把令牌桥给 MCP SDK 的 `transportContextProvider`，
+该 supplier 的求值线程取决于 SDK 内部实现；若与 `DelegationContext.set` 不同线程即会串号。
+
+判据：每轮两个不同用户**并发**发起对话、各触发一次 MCP 调用。单轮只有两条请求，
+因此不变量是「两个 sub 必须不同」——串号时必然表现为其中一个 userId 出现两次、另一个消失。
+
+```
+admin userId  = ragent:2001523723396308993
+probe userId  = ragent:2001523723396308994
+轮数 = 6（每轮两个用户各发一条，并发）
+
+[OK  ] 第 1 轮: 收到 2 条令牌, subs=['ragent:2001523723396308993', 'ragent:2001523723396308994']
+[OK  ] 第 2 轮: 收到 2 条令牌, subs=['ragent:2001523723396308993', 'ragent:2001523723396308994']
+[OK  ] 第 3 轮: 收到 2 条令牌, subs=['ragent:2001523723396308993', 'ragent:2001523723396308994']
+[OK  ] 第 4 轮: 收到 2 条令牌, subs=['ragent:2001523723396308993', 'ragent:2001523723396308994']
+[OK  ] 第 5 轮: 收到 2 条令牌, subs=['ragent:2001523723396308993', 'ragent:2001523723396308994']
+[OK  ] 第 6 轮: 收到 2 条令牌, subs=['ragent:2001523723396308993', 'ragent:2001523723396308994']
+
+结论：6 轮全部通过，共 12 条令牌，每轮两个 userId 均正确出现一次。
+ThreadLocal 桥接在实测并发下未串号。
+注：仅证明当前 SDK 1.1.2 行为；design.md 已记录这是对 SDK 内部实现的依赖。
+```
+
+脚本：`/tmp/s3-concurrency.py`（判据写在文件头注释）。
+
+> 首轮跑出的 FAIL 是**脚本自身的 bug**：断言拿裸 userId 去比带 `ragent:` 前缀的 sub，恒为 False。
+> 原始数据（每轮恰好 2 条、两个 sub 各一条）当时就已表明没有串号；修断言后重跑，结论一致。
+> 保留此记录是因为「测试自己错了」与「被测对象错了」必须分得清。
+
+## 结论与边界
+
+- 令牌**确实**经 MCP 传输层走了 HTTP header，**未走工具参数**；`sub` 与发起用户一致。
+- 实测并发下 ThreadLocal 桥接**未串号**。
+- **边界**：这只证明 MCP SDK 1.1.2 当前版本的内部行为。design.md 已记录这是对 SDK
+  **内部实现**而非公开契约的依赖；SDK 若改成 `subscribeOn`，症状会是「A 的令牌出现在 B 的调用里」，
+  本脚本可直接复用来回归。

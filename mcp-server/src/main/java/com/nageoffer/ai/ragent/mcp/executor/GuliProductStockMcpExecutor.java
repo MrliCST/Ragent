@@ -17,7 +17,9 @@
 
 package com.nageoffer.ai.ragent.mcp.executor;
 
+import com.nageoffer.ai.ragent.mcp.config.AgentDelegation;
 import io.modelcontextprotocol.server.McpServerFeatures;
+import io.modelcontextprotocol.server.McpSyncServerExchange;
 import io.modelcontextprotocol.spec.McpSchema.CallToolRequest;
 import io.modelcontextprotocol.spec.McpSchema.CallToolResult;
 import io.modelcontextprotocol.spec.McpSchema.JsonSchema;
@@ -63,7 +65,7 @@ public class GuliProductStockMcpExecutor {
     @Bean
     public McpServerFeatures.SyncToolSpecification productStockToolSpecification() {
         return new McpServerFeatures.SyncToolSpecification(buildTool(),
-                (exchange, request) -> handleCall(request));
+                (exchange, request) -> handleCall(exchange, request));
     }
 
     private Tool buildTool() {
@@ -89,7 +91,7 @@ public class GuliProductStockMcpExecutor {
                 .build();
     }
 
-    private CallToolResult handleCall(CallToolRequest request) {
+    private CallToolResult handleCall(McpSyncServerExchange exchange, CallToolRequest request) {
         long startMs = System.currentTimeMillis();
         try {
             Map<String, Object> args = request.arguments() != null ? request.arguments() : Map.of();
@@ -116,7 +118,7 @@ public class GuliProductStockMcpExecutor {
 
             ResponseEntity<Map> response = restTemplate.exchange(
                     url, HttpMethod.GET,
-                    new HttpEntity<>(GuliApiSupport.headers(guliMcpProperties)), Map.class);
+                    new HttpEntity<>(GuliApiSupport.headers(guliMcpProperties, AgentDelegation.tokenOf(exchange))), Map.class);
 
             int status = response.getStatusCode().value();
             Map<String, Object> resultData = response.getBody();

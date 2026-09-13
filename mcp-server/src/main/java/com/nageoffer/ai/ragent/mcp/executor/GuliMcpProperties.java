@@ -28,6 +28,7 @@ import org.springframework.stereotype.Component;
  * 支持配置项：
  *   - guli.product.base-url: 商品服务基础 URL（默认：http://localhost:8080/product）
  *   - guli.ware.base-url: 仓储服务基础 URL（默认：http://localhost:8080/ware）
+ *   - guli.shopcart.base-url: 购物车服务基础 URL（默认：http://localhost:8080/shopcart）
  *   - guli.auth.token: 调用谷粒商城接口所需的登录态 token（可选）
  */
 @Data
@@ -44,6 +45,11 @@ public class GuliMcpProperties {
      * 仓储服务配置
      */
     private WareServiceConfig ware = new WareServiceConfig();
+
+    /**
+     * 购物车服务配置
+     */
+    private ShopcartServiceConfig shopcart = new ShopcartServiceConfig();
 
     /**
      * 鉴权配置
@@ -64,6 +70,14 @@ public class GuliMcpProperties {
          * 仓储服务基础 URL
          */
         private String baseUrl = "http://localhost:8080/ware";
+    }
+
+    @Data
+    public static class ShopcartServiceConfig {
+        /**
+         * 购物车服务基础 URL
+         */
+        private String baseUrl = "http://localhost:8080/shopcart";
     }
 
     /**

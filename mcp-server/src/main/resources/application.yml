@@ -9,11 +9,14 @@ spring:
 # 直连微服务端口（不经网关），因此 base-url 不带 /product、/ware 前缀：
 #   guli-product  :9214  →  GET /display/item/{skuId}
 #   guli-ware     :9215  →  GET /wareSku/list?skuId={skuId}
+#   guli-shopcart :9216  →  GET /cart（用户维度：身份来自代理令牌，非工具参数）
 guli:
   product:
     base-url: http://localhost:9214
   ware:
     base-url: http://localhost:9215
+  shopcart:
+    base-url: http://localhost:9216
   # 谷粒商城的 UserInfoInterceptor 强制要求 Authorization: Bearer <token>，
   # 且 Redis 中必须存在 guli:auth:<token>，否则接口一律返回 code=10011。
   # 本地验证用 token，由 .trellis/tasks/09-13-guli-mcp-live/seed-auth-token.sh 种入 Redis。

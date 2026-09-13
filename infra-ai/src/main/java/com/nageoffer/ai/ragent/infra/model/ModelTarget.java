@@ -34,5 +34,4 @@ public record ModelTarget(
         AIModelProperties.ModelCandidate candidate,
         AIModelProperties.ProviderConfig provider,
         Long timeoutMs
-) {
-}
+) 
